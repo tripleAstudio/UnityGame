@@ -4,12 +4,9 @@ using System.Collections.Generic;
 
 public class Gun : MonoBehaviour
 {
-    public enum weaponType { Shotgun, Machinegun, Burst, Launcher }; // use burst for single shot weapons like pistols / sniper rifles
-    public weaponType typeOfGun;
-
-    public enum LauncherType { Grenade, Rocket }; // Type of launcher
-    public LauncherType typeOfLauncher;
-
+	public enum weaponType {Shotgun};
+	public weaponType typeOfGun;
+	
     public enum BulletType { Physical, Raycast }; // physical bullets of raycasts
     public BulletType typeOfBullet;
     
@@ -17,10 +14,8 @@ public class Gun : MonoBehaviour
     // basic weapon variables all guns have in common
     // Objects, effects and tracers
     public GameObject bullet = null;        // the weapons bullet object
-    public GameObject grenade = null;       // the grenade style round... this can also be used for arrows or similar rounds
-    public GameObject rocket = null;        // the rocket round
 	public AudioClip Fire = null;
-	private Animator Shotgun;
+	private Animator ShotgunAnim;
     public Renderer muzzleFlash = null;     // the muzzle flash for this weapon
     public Light lightFlash = null;         // the light flash for this weapon
     public Transform muzzlePoint = null;    // the muzzle point of this weapon
@@ -29,22 +24,15 @@ public class Gun : MonoBehaviour
     public Rigidbody shell = null;          // the weapons empty shell object
     public GameObject gunOwner = null;      // the gun owner
     public GameObject mainCamera = null;    // the player's main camera
-    public GameObject weaponCamera = null;  // this weapon's camera
+	public GameObject WorldmainCamera = null;
+    public GameObject WorldweaponCamera = null;  // this weapon's camera
+	public GameObject weaponCamera = null;
     public GameObject impactEffect = null;  // impact effect, used for raycast bullet types
     public GameObject bulletHole = null;    // bullet hole for raycast bullet types
-
-    public GameObject weaponTarget = null;
    
-    //Machinegun Vars
-    private bool isFiring = false;          // is the machine gun firing?  used for decreasing accuracy while sustaining fire
-
     //Shotgun Specific Vars
     public int pelletsPerShot = 10;         // number of pellets per round fired for the shotgun
-
-    //Burst Specific Vars
-    public int roundsPerBurst = 3;          // number of rounds per burst fire
-    public float lagBetweenShots = 0.5f;    // time between each shot in a burst
-
+	
     //Launcher Specific Vars    
 
     // basic stats
@@ -89,7 +77,7 @@ public class Gun : MonoBehaviour
         //myTrans = transform;
         bulletsLeft = bulletsPerClip; // load gun on startup
         //localPlayerName = PlayerPrefs.GetString("playerName");  // get the name of the player 
-		Shotgun = GetComponent<Animator>();
+		ShotgunAnim = GetComponent<Animator>();
     }
     // check whats the player is doing every frame
     bool Update()
@@ -109,25 +97,6 @@ public class Gun : MonoBehaviour
                     ShotGun_Fire();  // fire shotgun
                 }
                 break;
-            case weaponType.Machinegun:
-                if (Input.GetButton("Fire1"))
-                {                    
-                    MachineGun_Fire();   // fire machine gun                 
-                }
-                break;
-            case weaponType.Burst:
-                if (Input.GetButtonDown("Fire1"))
-                {
-                   StartCoroutine("Burst_Fire"); // fire off a burst of rounds                   
-                }
-                break;
-
-            case weaponType.Launcher:
-                if (Input.GetButtonDown("Fire1"))
-                {
-                    Launcher_Fire();
-                }
-                break;
         }//=========================================================================================
 
         if (Input.GetButton("Fire2"))
@@ -135,31 +104,17 @@ public class Gun : MonoBehaviour
             if (weaponCamera)
             {
                 weaponCamera.GetComponent<Camera>().enabled = true;
+				WorldweaponCamera.GetComponent<Camera>().enabled = true;
                 mainCamera.GetComponent<Camera>().enabled = false;
+				WorldmainCamera.GetComponent<Camera>().enabled = false;
             }
         }
         else
         {
             weaponCamera.GetComponent<Camera>().enabled = false;
+			WorldweaponCamera.GetComponent<Camera>().enabled = false;
+			WorldmainCamera.GetComponent<Camera>().enabled = true;
             mainCamera.GetComponent<Camera>().enabled = true;
-        }
-
-        //used to decrease weapon accuracy as long as the trigger remains down =====================
-        if (Input.GetButtonDown("Fire1"))
-        {
-            isFiring = true; // fire is down, gun is firing
-        }
-        if (Input.GetButtonUp("Fire1"))
-        {
-            isFiring = false; // if fire is up... gun is not firing
-        }
-        if (isFiring) // if the gun is firing
-        {
-            spread += spreadPerSecond; // gun is less accurate with the trigger held down
-        }
-        else
-        {
-            spread -= decreaseSpreadPerSec; // gun regains accuracy when trigger is released
         }
         //===========================================================================================
         return true;
@@ -193,86 +148,6 @@ public class Gun : MonoBehaviour
             {
                 spread = baseSpread; //if current spread is less then base, set to base
             }
-        }
-    }
-    // fire the machine gun
-    void MachineGun_Fire()
-    {
-        if (bulletsLeft <= 0)
-        {
-            StartCoroutine("reload");
-            return;
-        }
-        // If there is more than one bullet between the last and this frame
-        // Reset the nextFireTime
-        if (Time.time - fireRate > nextFireTime)
-            nextFireTime = Time.time - Time.deltaTime;
-
-        // Keep firing until we used up the fire time
-        while (nextFireTime < Time.time)
-        {
-            switch (typeOfBullet)
-            {
-                case BulletType.Physical:
-                    StartCoroutine("FireOneShot");  // fire a physical bullet
-                    break;
-                case BulletType.Raycast:
-                    StartCoroutine("FireOneRay");  // fire a raycast.... change to FireOneRay
-                    break;
-                default:
-                    Debug.Log("error in bullet type");
-                    break;
-            }
-            shotsFired++;
-            bulletsLeft--;
-            nextFireTime += fireRate;
-            EjectShell();
-        }
-        
-    }
-    // fire the burst rifle
-    IEnumerator Burst_Fire()
-    {
-        int shotCounter = 0;
-
-        if (bulletsLeft <= 0)
-        {
-            StartCoroutine("reload");
-            yield break;//return;
-        }
-
-        // If there is more than one bullet between the last and this frame
-        // Reset the nextFireTime
-        if (Time.time - fireRate > nextFireTime)
-            nextFireTime = Time.time - Time.deltaTime;
-
-        // Keep firing until we used up the fire time
-        while (nextFireTime < Time.time)
-        {
-            while (shotCounter < roundsPerBurst)
-            {
-                //Debug.Log(" shotCounter = " + shotCounter + ", roundsPerBurst = "+roundsPerBurst);
-                switch (typeOfBullet)
-                {
-                    case BulletType.Physical:
-                        StartCoroutine("FireOneShot");  // fire a physical bullet
-                        break;
-                    case BulletType.Raycast:
-                        StartCoroutine("FireOneRay");  // fire a raycast.... change to FireOneRay
-                        break;
-                    default:
-                        Debug.Log("error in bullet type");
-                        break;
-                }                
-                //Debug.Log("FireOneShot Called in Fire function.");
-                shotCounter++;
-                shotsFired++;
-                bulletsLeft--; // subtract a bullet 
-                EjectShell();
-                yield return new WaitForSeconds(lagBetweenShots);                
-            }
-
-            nextFireTime += fireRate;
         }
     }
     // fire the shotgun
@@ -316,28 +191,6 @@ public class Gun : MonoBehaviour
             bulletsLeft--; // subtract a bullet
         }
     }
-    // fire your launcher
-    void Launcher_Fire()
-    {
-        if (bulletsLeft == 0)
-        {
-            StartCoroutine("reload"); // if out of ammo, reload
-            return;
-        }
-
-        // If there is more than one bullet between the last and this frame
-        // Reset the nextFireTime
-        if (Time.time - fireRate > nextFireTime)
-            nextFireTime = Time.time - Time.deltaTime;
-
-        // Keep firing until we used up the fire time
-        while (nextFireTime < Time.time)
-        {
-            StartCoroutine("FireOneProjectile"); // fire 1 round                
-            nextFireTime += fireRate;  // can fire another shot in "firerate" number of frames
-            bulletsLeft--; // subtract a bullet
-        }
-    }
     // Create and fire a bullet
     IEnumerator FireOneShot()
     {
@@ -355,24 +208,6 @@ public class Gun : MonoBehaviour
         GameObject newBullet = Instantiate(bullet, position, transform.parent.rotation) as GameObject; // create a bullet
         newBullet.SendMessageUpwards("SetUp", bulletInfo); // send the gun's info to the bullet
         newBullet.GetComponent<Bullet>().Owner = gunOwner; // owner of the bullet is this gun's owner object
-
-        if (!(typeOfGun == weaponType.Launcher))
-        {
-            if (shotsFired >= roundsPerTracer) // tracer round every so many rounds fired... is there a tracer this round fired?
-            {
-                newBullet.GetComponent<Renderer>().enabled = true; // turn on tracer effect
-                shotsFired = 0;                    // reset tracer counter
-            }
-            else
-            {
-                newBullet.GetComponent<Renderer>().enabled = false; // turn off tracer effect
-            }
-
-            if (GetComponent<AudioSource>())
-            {
-                GetComponent<AudioSource>().Play();  // if there is a gun shot sound....play it
-            }
-        }       
 
         if ((bulletsLeft == 0))
         {
@@ -393,7 +228,7 @@ public class Gun : MonoBehaviour
         bool tracerWasFired = false;
         Vector3 position = muzzlePoint.position; // position to spawn bullet is at the muzzle point of the gun
         Vector3 direction = muzzlePoint.TransformDirection(Random.Range(-maxSpread, maxSpread) * spread, Random.Range(-maxSpread, maxSpread) * spread, 1);
-        Vector3 dir = (weaponTarget.transform.position - position) + direction;
+		Vector3 dir = (gunOwner.transform.position - position) + direction;
 
         // set the gun's info into an array to send to the bullet
         bulletInfo[0] = damage;
@@ -434,49 +269,6 @@ public class Gun : MonoBehaviour
             // Debug.Log("if " + hitCount + " > " + maxHits + " then destroy bullet...");    
             hitCount++;
         }        
-    }
-    // Create and Fire 1 launcher projectile
-    IEnumerator FireOneProjectile()
-    {
-        Vector3 position = muzzlePoint.position; // position to spawn rocket / grenade is at the muzzle point of the gun
-
-        bulletInfo[0] = damage;
-        bulletInfo[1] = impactForce;
-        bulletInfo[2] = maxPenetration;
-        bulletInfo[3] = maxSpread;
-        bulletInfo[4] = spread;
-        bulletInfo[5] = bulletSpeed;
-
-        switch (typeOfLauncher)
-        {
-            case LauncherType.Grenade:
-                GameObject newNoobTube = Instantiate(grenade, position, transform.parent.rotation) as GameObject;
-                newNoobTube.SendMessageUpwards("SetUp", bulletInfo);
-                break;
-            case LauncherType.Rocket:
-                GameObject newRocket = Instantiate(rocket, position, transform.parent.rotation) as GameObject;
-                newRocket.SendMessageUpwards("SetUp", bulletInfo);
-                break;
-            default:
-                Debug.Log("invalid launcher type.... default fired");
-                break;
-        }
-
-        if (GetComponent<AudioSource>())
-        {
-            GetComponent<AudioSource>().Play();  // if there is a gun shot sound....play it
-        }
-
-        if ((bulletsLeft == 0))
-        {
-            StartCoroutine("reload");  // if out of bullets.... reload
-            yield break;
-        }
-
-        // Register that we shot this frame,
-        // so that the LateUpdate function enabled the muzzleflash renderer for one frame
-        m_LastFrameShot = Time.frameCount;
-
     }
     // create and "fire" an empty shell
     void EjectShell()

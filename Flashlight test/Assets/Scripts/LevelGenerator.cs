@@ -18,7 +18,7 @@ public class LevelGenerator : MonoBehaviour {
 
 		for(int i = 0; i < sections; i++) 
 		{
-			currentTile = Instantiate(tilePrefabs[Random.Range(0, tilePrefabs.Length)], transform.position, transform.rotation) as Transform;
+			currentTile = Instantiate(tilePrefabs[Random.Range(0, tilePrefabs.Length)], transform.position, Quaternion.identity) as Transform;
 
 			if(previousTile)
 			{
