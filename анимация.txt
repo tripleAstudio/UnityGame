@@ -1,0 +1,50 @@
+var animOpen : AnimationClip;  
+var animClose : AnimationClip;  
+var soundOpen : AudioClip;  
+var soundClose : AudioClip;
+
+private var audioSource : AudioSource;
+
+private var open = true;  
+private var close = false;  
+
+function OnTriggerEnter (obj : Collider) 
+{
+		   Debug.Log("input open");
+           if (open)  
+           {  
+        		open = false;  
+           		Open ();  
+        	}  
+}
+
+function OnTriggerExit (obj : Collider) 
+{
+    	 if (close)  
+    	{  
+	        close = false;  
+	        Close ();  
+    	}  
+}
+
+function Open ()  
+{  
+		Debug.Log("input open anim");
+      // GetComponent.<AudioSource>().clip = soundOpen; 
+       // GetComponent.<AudioSource>().Play();  
+        GetComponent.<Animation>().clip = animOpen;  
+        GetComponent.<Animation>().Play(); 
+        yield WaitForSeconds (GetComponent.<Animation>().clip.length);  
+        close = true;  
+}  
+
+function Close()
+{
+		Debug.Log("input close");
+		//GetComponent.<AudioSource>().clip = soundClose;  
+        //GetComponent.<AudioSource>().Play();  
+        GetComponent.<Animation>().clip = animClose;  
+        GetComponent.<Animation>().Play();  
+        yield WaitForSeconds (GetComponent.<Animation>().clip.length);  
+        open = true; 
+}
