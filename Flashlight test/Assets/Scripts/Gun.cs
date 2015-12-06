@@ -29,6 +29,7 @@ public class Gun : MonoBehaviour
 	public GameObject weaponCamera = null;
     public GameObject impactEffect = null;  // impact effect, used for raycast bullet types
     public GameObject bulletHole = null;    // bullet hole for raycast bullet types
+	public GameObject enemyBulletHole = null;
    
     //Shotgun Specific Vars
     public int pelletsPerShot = 10;         // number of pellets per round fired for the shotgun
@@ -65,39 +66,23 @@ public class Gun : MonoBehaviour
 
     private float[] bulletInfo = new float[6];// all of the info sent to a fired bullet
 
-    //Network Parts ...yeah
-    bool localPlayer = true; //set to false // Am I a local player... or networked
-    string localPlayerName = "";            // what's my name
-    //Transform myTrans;                    // my transform
-
-
-    // Setting up variables as soon as a level starts
     void Start()
     {
-        //myTrans = transform;
-        bulletsLeft = bulletsPerClip; // load gun on startup
-        //localPlayerName = PlayerPrefs.GetString("playerName");  // get the name of the player 
+        bulletsLeft = bulletsPerClip;
 		ShotgunAnim = GetComponent<Animator>();
     }
-    // check whats the player is doing every frame
+
     bool Update()
     {
-        if (!localPlayer)
-        {
-            return false;  // if not the local player.... exit function
-        }
-       
-        // Did the user press fire.... and what kind of weapon are they using ?  ===============
         switch (typeOfGun)
         {
             case weaponType.Shotgun:
                 if (Input.GetButtonDown("Fire1"))
                 {
-                    //Debug.Log("Shotgun Fire Called");
-                    ShotGun_Fire();  // fire shotgun
+                    ShotGun_Fire();
                 }
                 break;
-        }//=========================================================================================
+        }
 
         if (Input.GetButton("Fire2"))
         {
@@ -116,10 +101,8 @@ public class Gun : MonoBehaviour
 			WorldmainCamera.GetComponent<Camera>().enabled = true;
             mainCamera.GetComponent<Camera>().enabled = true;
         }
-        //===========================================================================================
         return true;
     }
-    // update weapon flashes after checking user inout in update function
     void LateUpdate()
     {
         if (muzzleFlash || lightFlash)  // need to have a muzzle or light flash in order to enable or disable them
@@ -150,23 +133,19 @@ public class Gun : MonoBehaviour
             }
         }
     }
-    // fire the shotgun
     void ShotGun_Fire()
     {
-        int pelletCounter = 0;  // counter used for pellets per round
+        int pelletCounter = 0;
 
         if (bulletsLeft == 0)
         {
-            StartCoroutine("reload"); // if out of ammo, reload
+            StartCoroutine("reload");
             return;
         }
 
-        // If there is more than one bullet between the last and this frame
-        // Reset the nextFireTime
         if (Time.time - fireRate > nextFireTime)
             nextFireTime = Time.time - Time.deltaTime;
 
-        // Keep firing until we used up the fire time
         while (nextFireTime < Time.time)
         {
             do
@@ -174,29 +153,24 @@ public class Gun : MonoBehaviour
                 switch (typeOfBullet)
                 {
                     case BulletType.Physical:
-                        StartCoroutine("FireOneShot");  // fire a physical bullet
-                        break;
-                    case BulletType.Raycast:
-                        StartCoroutine("FireOneRay");  // fire a raycast.... change to FireOneRay
+                        StartCoroutine("FireOneShot");
                         break;
                     default:
                         Debug.Log("error in bullet type");
                         break;
                 }
-                pelletCounter++; // add another pellet
-                shotsFired++; // another shot was fired                
-            } while (pelletCounter < pelletsPerShot); // if number of pellets fired is less then pellets per round... fire more pellets
-            EjectShell(); // eject 1 shell 
-            nextFireTime += fireRate;  // can fire another shot in "firerate" number of frames
-            bulletsLeft--; // subtract a bullet
+                pelletCounter++; 
+                shotsFired++;               
+            } while (pelletCounter < pelletsPerShot); 
+            EjectShell(); 
+            nextFireTime += fireRate;  
+            bulletsLeft--; 
         }
     }
-    // Create and fire a bullet
     IEnumerator FireOneShot()
     {
-        Vector3 position = muzzlePoint.position; // position to spawn bullet is at the muzzle point of the gun       
+        Vector3 position = muzzlePoint.position;   
 
-        // set the gun's info into an array to send to the bullet
         bulletInfo[0] = damage;
         bulletInfo[1] = impactForce;
         bulletInfo[2] = maxPenetration;
@@ -204,73 +178,19 @@ public class Gun : MonoBehaviour
         bulletInfo[4] = spread;
         bulletInfo[5] = bulletSpeed;
 
-        //bullet info is set up in start function
-        GameObject newBullet = Instantiate(bullet, position, transform.parent.rotation) as GameObject; // create a bullet
-        newBullet.SendMessageUpwards("SetUp", bulletInfo); // send the gun's info to the bullet
-        newBullet.GetComponent<Bullet>().Owner = gunOwner; // owner of the bullet is this gun's owner object
+        GameObject newBullet = Instantiate(bullet, position, transform.parent.rotation) as GameObject; 
+        newBullet.SendMessageUpwards("SetUp", bulletInfo); 
+        newBullet.GetComponent<Bullet>().Owner = gunOwner; 
 
         if ((bulletsLeft == 0))
         {
-            StartCoroutine("reload");  // if out of bullets.... reload
+            StartCoroutine("reload"); 
             yield break;
         }
         
-        // Register that we shot this frame,
-        // so that the LateUpdate function enabled the muzzleflash renderer for one frame
         m_LastFrameShot = Time.frameCount;
     }
-    // Create and Fire a raycast
-    IEnumerator FireOneRay()
-    {
-
-        string[] Info = new string[2];
-        int hitCount = 0;
-        bool tracerWasFired = false;
-        Vector3 position = muzzlePoint.position; // position to spawn bullet is at the muzzle point of the gun
-        Vector3 direction = muzzlePoint.TransformDirection(Random.Range(-maxSpread, maxSpread) * spread, Random.Range(-maxSpread, maxSpread) * spread, 1);
-		Vector3 dir = (gunOwner.transform.position - position) + direction;
-
-        // set the gun's info into an array to send to the bullet
-        bulletInfo[0] = damage;
-        bulletInfo[1] = impactForce;
-        bulletInfo[2] = maxPenetration;
-        bulletInfo[3] = maxSpread;
-        bulletInfo[4] = spread;
-        bulletInfo[5] = bulletSpeed;
-
-        if (shotsFired >= roundsPerTracer)
-        {
-            FireOneTracer(bulletInfo);
-            shotsFired = 0;
-            tracerWasFired = true;
-        }         
-        
-        RaycastHit[] hits = Physics.RaycastAll(position , dir, range);
-
-        for (int i = 0; i < hits.Length; i++)
-        {
-            if (hitCount >= maxPenetration)
-            {
-                yield break;
-            }           
-
-            RaycastHit hit = hits[i];
-            //Debug.Log( "Bullet hit " + hit.collider.gameObject.name + " at " + hit.point.ToString() );
-
-            // notify hit
-            if (!tracerWasFired)
-            { // tracers are set to show impact effects... we dont want to show more then 1 per bullet fired
-                ShowHits(hit); // show impacts effects if no tracer was fired this round
-            }
-
-            Info[0] = localPlayerName;
-            Info[1] = damage.ToString();
-            hit.collider.SendMessageUpwards("ImHit", Info, SendMessageOptions.DontRequireReceiver);
-            // Debug.Log("if " + hitCount + " > " + maxHits + " then destroy bullet...");    
-            hitCount++;
-        }        
-    }
-    // create and "fire" an empty shell
+	
     void EjectShell()
     {
         Vector3 position = ejectPoint.position; // ejectile spawn point at gun's ejection point
@@ -282,14 +202,7 @@ public class Gun : MonoBehaviour
             newShell.velocity = transform.TransformDirection(Random.Range(-2, 2) - 3.0f, Random.Range(-1, 2) + 3.0f, -Random.Range(-2, 2) + 1.0f);
         }
     }
-    // tracer rounds for raycast bullets
-    void FireOneTracer(float[] info)
-    {
-        Vector3 position = muzzlePoint.position; 
-        GameObject newTracer = Instantiate(bullet, position, transform.parent.rotation) as GameObject; // create a bullet
-        newTracer.SendMessageUpwards("SetUp", info); // send the gun's info to the bullet
-        newTracer.SendMessageUpwards("SetTracer");  // tell the bullet it is only a tracer
-    }
+
     //effects for raycast bullets
     void ShowHits(RaycastHit hit)
     {
@@ -298,7 +211,7 @@ public class Gun : MonoBehaviour
             case "bullet":
                 // do nothing if 2 bullets collide
                 break;
-            case "Player":
+            case "Zombie":
                 // add blood effect
                 break;
             case "wood":
@@ -311,9 +224,9 @@ public class Gun : MonoBehaviour
                 // add dirt or ground  impact effect
                 break;
             default: // default impact effect and bullet hole
-                Instantiate(impactEffect, hit.point + 0.1f * hit.normal, Quaternion.FromToRotation(Vector3.up, hit.normal));
-                GameObject newBulletHole = Instantiate(bulletHole, hit.point, Quaternion.FromToRotation(Vector3.up, hit.normal)) as GameObject;
-                newBulletHole.transform.parent = hit.transform;
+//                Instantiate(impactEffect, hit.point + 0.1f * hit.normal, Quaternion.FromToRotation(Vector3.up, hit.normal));
+//               	GameObject newBulletHole = Instantiate(bulletHole, hit.point, Quaternion.FromToRotation(Vector3.up, hit.normal)) as GameObject;
+//                newBulletHole.transform.parent = hit.transform;
                 break;
         }
     }

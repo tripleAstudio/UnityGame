@@ -16,6 +16,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[SerializeField] float m_AnimSpeedMultiplier = 1f;
 		[SerializeField] float m_GroundCheckDistance = 0.1f;
 
+		public Collider m_Collider;
 		Rigidbody m_Rigidbody;
 		Animator m_Animator;
 		bool m_IsGrounded;
@@ -23,11 +24,15 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		const float k_Half = 0.5f;
 		float m_TurnAmount;
 		float m_ForwardAmount;
+		bool m_attack = false;
 		Vector3 m_GroundNormal;
 		float m_CapsuleHeight;
 		Vector3 m_CapsuleCenter;
 		CapsuleCollider m_Capsule;
 		bool m_Crouching;
+		public bool Attack = false;
+
+
 
 
 		void Start()
@@ -40,6 +45,9 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 
 			m_Rigidbody.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationY | RigidbodyConstraints.FreezeRotationZ;
 			m_OrigGroundCheckDistance = m_GroundCheckDistance;
+
+
+
 		}
 
 
@@ -113,7 +121,25 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 				}
 			}
 		}
+		void OnCollisionEnter(Collision myCollision)
+		{
+			if (myCollision.gameObject.tag == "Player") 
+			{
+				m_attack = true;
+			}
+			if (myCollision.gameObject.tag == "Bullet") 
+			{
+				Destroy(gameObject);
+			}
+		}
 
+		void OnCollisionExit(Collision myCollision)
+		{
+			if (myCollision.gameObject.tag == "Player") 
+			{
+				m_attack = false;
+			}
+		}
 
 		void UpdateAnimator(Vector3 move)
 		{
@@ -122,6 +148,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			m_Animator.SetFloat("Turn", m_TurnAmount, 0.1f, Time.deltaTime);
 			m_Animator.SetBool("Crouch", m_Crouching);
 			m_Animator.SetBool("OnGround", m_IsGrounded);
+			m_Animator.SetBool ("Attack", m_attack);
 			if (!m_IsGrounded)
 			{
 				m_Animator.SetFloat("Jump", m_Rigidbody.velocity.y);
@@ -137,6 +164,10 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			if (m_IsGrounded)
 			{
 				m_Animator.SetFloat("JumpLeg", jumpLeg);
+			}
+			if (m_attack == true) 
+			{
+				m_Animator.SetBool("Attack", m_attack);
 			}
 
 			// the anim speed multiplier allows the overall speed of walking/running to be tweaked in the inspector,
@@ -175,6 +206,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 				m_GroundCheckDistance = 0.1f;
 			}
 		}
+
 
 		void ApplyExtraTurnRotation()
 		{

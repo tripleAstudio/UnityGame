@@ -31,7 +31,7 @@ public class OpenUpDoorScriptExit : MonoBehaviour
 	void Open()
 	{
 		Debug.Log("input open anim");
-        GameObject doorExit = GameObject.FindWithTag("SF_Door_Exit_Level");
+		GameObject doorExit = GameObject.FindWithTag("SF_Door_Exit_Level");
 		doorExit.GetComponent<Animation>().Play("open");
 	}
 }
